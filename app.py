@@ -17,7 +17,7 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 @app.route('/', methods=['GET'])
 def home():
     logging.info("Home route accessed")
-    return jsonify({'result': 'Hello I am Edge Case Master, a handy tool for quick edge case creation and validation', "founder": "Shenile A"}), 200
+    return jsonify({'result': 'Hello I am Edge Case Master, a handy tool for quick edge case creation and validation', "developer": "Shenile A"}), 200
 
 @app.route('/runtests', methods=['POST'])
 def execute_code():
