@@ -63,7 +63,6 @@ def execute_code():
 
         stdout_output = result.stdout.strip()
         stderr_output = result.stderr.strip()
-
         os.remove(temp_code_filename)
         os.remove(temp_data_filename)
 
@@ -76,13 +75,14 @@ def execute_code():
         result_json = {"error": f"Subprocess execution failed: {e}"}
         stderr_output = str(e)
 
-    logging.info(f"Test results: {result_json['results']['result']}")
-    logging.info(f"Test summary: {result_json['results']['testSummary']}")
+    if "compilation_error" in result_json:
+        return jsonify(result_json), 500
 
+    logging.info(f'result_json {result_json}')
     return jsonify({
-        "results": result_json["results"]["result"],
-        "testSummary": result_json["results"]["testSummary"],
-        'err': stderr_output
+        "results": result_json.get("results", []),
+        "tests_summary": result_json.get("tests_summary", {}),
+        "err": stderr_output
     }), 200
 
 if __name__ == '__main__':

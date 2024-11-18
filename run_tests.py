@@ -28,6 +28,11 @@ def main():
     data_file = sys.argv[2]
     function_name = sys.argv[3]
 
+    # response structure
+    response = {
+        "results" : None,
+        "tests_summary" : None
+    }
     try:
         user_code = import_user_code(code_file)
         test_data = read_test_data(data_file)
@@ -44,22 +49,18 @@ def main():
 
         if hasattr(user_code, function_name):
             function = getattr(user_code, function_name)
-            results = tester.run_tests(function)
-            results_dict = {"results": results}
-        else:
-            error_message = f"Error: User code does not contain the function '{function_name}'"
-            results_dict = {"results": [error_message]}
+            test_results = tester.run_tests(function)
+            response['results'] = test_results['results']
+            response['tests_summary'] = test_results['tests_summary']
 
-        logging.info(f"Test results: {results_dict['results']}")
-        print(json.dumps(results_dict))
+
+        logging.info(f"Test results: {response['results']}")
+        print(json.dumps(response))
 
     except Exception as e:
         error_message = f"Error: {str(e)}"
-        results_dict = {"results": [error_message]}
         logging.error(f"Test execution failed: {str(e)}")
-        traceback.print_exc()
-
-        print(json.dumps(results_dict))
+        print(json.dumps({"compilation_error" : True, "err": error_message}))
 
 if __name__ == "__main__":
     main()
