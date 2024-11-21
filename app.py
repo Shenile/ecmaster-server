@@ -7,7 +7,7 @@ import json
 import os
 from validator import validate_and_process_input_output, ValidationException
 from userInputs_edge_case_handler import handleEdgecases, extract_function_name, FunctionNameNotFoundError
-from ai_test_case_generator import ask_ai
+from ai_test_case_generator import ask_ai, InvalidCodeError
 
 # Set up logging configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -64,7 +64,7 @@ def run_tests(temp_code_filename, temp_data_filename, function_name):
 
         stdout_output = result.stdout.strip()
         stderr_output = result.stderr.strip()
-
+        logging.info(f'Results Got from the subprocess : \n{stderr_output} \n{stderr_output}')
         # Decode JSON result
         try:
             result_json = json.loads(stdout_output) if stdout_output else {
@@ -100,8 +100,8 @@ def execute_code():
 
     result_json, stderr_output = handle_test_execution(user_code, input_list, output_list)
 
-    if "error" in result_json:
-        return jsonify(result_json), 400
+    if "err" in result_json:
+         return jsonify(result_json), 400
 
     logging.info(f'result_json {result_json}')
     return jsonify({
@@ -109,6 +109,7 @@ def execute_code():
         "tests_summary": result_json.get("tests_summary", {}),
         "err": stderr_output
     }), 200
+
 
 @app.route('/ask_ai', methods=['POST'])
 def generate_test_case():
@@ -122,10 +123,23 @@ def generate_test_case():
         # Log before calling ask_ai to generate test cases
         logging.info("Calling ask_ai to generate test cases.")
         test_cases = ask_ai(code)
-        logging.info(f"Generated test cases: {test_cases[:5]}...")  # Log a preview of the first 5 test cases to avoid large logs
+        logging.info(
+            f"Generated test cases: {test_cases[:5]}...")  # Log a preview of the first 5 test cases to avoid large logs
+
     except Exception as e:
         logging.error(f"Error occurred while generating test cases: {str(e)}")
-        return jsonify({"err": "Something went wrong ..,"}), 500
+
+        # Abstracted error message for the user
+        user_friendly_msg = "An error occurred while generating test cases. Please try again later."
+
+        # If it's a known issue (like bad input format or missing AI response), give a more specific message
+        if isinstance(e, ValueError) or isinstance(e, InvalidCodeError):
+            user_friendly_msg = "The input code seems to be invalid. Please check your code and try again."
+        elif isinstance(e, json.JSONDecodeError):
+            user_friendly_msg = "There was an issue processing the test cases response. Please try again."
+
+        # Return the abstracted error message to the user
+        return jsonify({"err": user_friendly_msg}), 500
 
     # Return the response with the generated test cases
     logging.info("Successfully generated test cases.")

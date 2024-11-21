@@ -13,11 +13,50 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 MAX_RETRIES = 3
 RETRY_DELAY = 2  # in seconds (initial delay between retries)
 
+# Custom exception for invalid code
+class InvalidCodeError(Exception):
+    """Exception raised for invalid code input."""
+    def __init__(self, message="User code is invalid"):
+        self.message = message
+        super().__init__(self.message)
+def validate_user_code(user_code):
+    """
+    Validate the user's code by checking for syntax errors.
+    This function tries to compile the code and checks if it is syntactically correct.
+    It handles various types of errors during validation.
+    """
+    error_map = {
+        SyntaxError: "Syntax error",
+        TypeError: "Type error",
+        NameError: "Name error",
+        IndentationError: "Indentation error",
+        ValueError: "Value error",
+        KeyError: "Key error",
+        AttributeError: "Attribute error"
+    }
+
+    try:
+        # Attempt to compile the code to check for syntax errors
+        compile(user_code, '<string>', 'exec')
+        logging.info("User code validated successfully.")
+        return True
+
+    except tuple(error_map.keys()) as e:
+        error_type = type(e).__name__
+        error_message = error_map.get(type(e), "Unexpected error")
+        logging.error(f"{error_message} in user code: {e}")
+        raise InvalidCodeError(f"{error_message}: {e}")
+
+    except Exception as e:
+        logging.error(f"Unexpected error during code validation: {e}")
+        raise InvalidCodeError(f"Unexpected validation error: {e}")
+
+
 
 def get_test_cases(user_code, client, model):
     logging.info("Generating test cases with the provided user code.")
     prompt = f"""
-    Given the following Python function, generate 10-15 important test cases. Each test case should contain simple inputs (e.g., lists with at most 15 elements), and focus on edge cases, error handling, and boundary conditions.
+    Given the following Python function, generate 10-15 important test cases. Each test case should contain simple inputs (e.g., lists with at most 15 elements), and focus on edge cases, error handling, and boundary conditions.Don't Include Error Outputs.
 
     Python code:
     {user_code}
@@ -114,7 +153,7 @@ def ask_ai(user_code):
     api_key = os.getenv("API_KEY")
     if not api_key:
         logging.error("API_KEY is missing or invalid.")
-        return None
+        raise ValueError("API_KEY is missing or invalid.")  # This should be abstracted in the Flask route as a user-friendly message
 
     model = "mistral-large-latest"
     client = Mistral(api_key=api_key)
@@ -124,28 +163,32 @@ def ask_ai(user_code):
 
     while retries < MAX_RETRIES:
         try:
+
+            if not validate_user_code(user_code):
+                raise InvalidCodeError("User code validation failed.")
+
             ai_response = get_test_cases(user_code, client, model)
 
             if not ai_response:
-                logging.error("Received an empty or invalid response from AI.")
-                return None
+                raise ValueError("Received empty or invalid response from AI.")
 
             test_cases = extract_inputs_outputs(ai_response)
             if test_cases is None:
-                logging.error("Failed to generate valid test cases.")
-                return None
+                raise ValueError("Failed to generate valid test cases.")
 
             return send_to_client(test_cases)
 
-        except json.JSONDecodeError as e:
+        except InvalidCodeError as ice:
+                raise ice
+
+        except (json.JSONDecodeError, ValueError) as e:
             retries += 1
-            logging.error(f"JSONDecodeError occurred. Retrying {retries}/{MAX_RETRIES}...")
+            logging.error(f"Error during AI response processing: {str(e)}. Retrying {retries}/{MAX_RETRIES}...")
             if retries < MAX_RETRIES:
                 time.sleep(RETRY_DELAY * retries)  # Exponential backoff
             else:
-                logging.error("Max retries reached. Unable to parse AI response.")
-                return None
+                raise ValueError("Failed to process the AI response after multiple attempts.")  # Specific error message
 
         except Exception as e:
-            logging.error(f"Unexpected error in AI test case generation: {e}")
-            return None
+            logging.error(f"Unexpected error during AI test case generation: {str(e)}")
+            raise RuntimeError("An unexpected error occurred. Please try again later.")  # Abstract error message for unexpected failures

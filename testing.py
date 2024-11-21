@@ -4,6 +4,7 @@ from typing import Callable, List, Dict, Any
 # Set up logging configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# timer decorator to measure execution time .,
 def timer(func):
     def wrapper(*args, **kwargs):
         start_time = time.perf_counter()
@@ -14,6 +15,7 @@ def timer(func):
         return result, execution_time_ms
 
     return wrapper
+
 class Testing:
     def __init__(self):
         self.tests: List[Dict[str, Any]] = []
@@ -63,6 +65,10 @@ class Testing:
                     result['error'] = f"Expected {expected_output}, but got {received_output}"
 
             except Exception as e:
+
+                result['status'] = 'Failed'
+                tests_summary['failed'] += 1
+                result['error'] = f"An ERROR occured : {str(e)}"
                 raise e
 
             results['results'].append(result)
