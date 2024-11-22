@@ -56,7 +56,7 @@ def validate_user_code(user_code):
 def get_test_cases(user_code, client, model):
     logging.info("Generating test cases with the provided user code.")
     prompt = f"""
-    Given the following Python function, generate 10-15 important test cases. Each test case should contain simple inputs (e.g., lists with at most 15 elements). Focus on edge cases, error handling, boundary conditions, and expected outputs. The test cases should be written in JSON format.
+    Given the following Python function, generate 10-15 important test cases. Each test case should contain simple inputs (e.g., lists with at most 15 elements), and focus on edge cases, error handling, and boundary conditions.Don't Include Error Outputs.
 
     Python code:
     {user_code}
@@ -67,14 +67,7 @@ def get_test_cases(user_code, client, model):
         {{"input": <input>, "expected_output": <output>}},
         ...
     ]
-
-    Note:
-    1. The inputs should be simple Python objects like integers, strings, lists (with at most 15 elements), and `None` values.
-    2. Ensure the response is properly formatted JSON without any extra characters or syntax issues.
-
-    Please ensure that the JSON format is valid and well-structured.
     """
-
     try:
         chat_response = client.chat.complete(
             model=model,
@@ -97,15 +90,7 @@ def clean_json(json_string):
     """
     json_string = re.sub(r'ValueError', '"ValueError"', json_string)
     json_string = re.sub(r',\s*([\]}])', r'\1', json_string)
-    json_string = re.sub(r'(\s*)([\[\{])', r'\2', json_string)  # Trim spaces before opening brackets
     json_string = json_string.replace('\n', '').replace('\r', '')
-
-    # Ensure it starts and ends with square brackets
-    if not json_string.startswith('['):
-        json_string = '[' + json_string
-    if not json_string.endswith(']'):
-        json_string = json_string + ']'
-
     return json_string
 
 
