@@ -19,6 +19,7 @@ class InvalidCodeError(Exception):
     def __init__(self, message="User code is invalid"):
         self.message = message
         super().__init__(self.message)
+
 def validate_user_code(user_code):
     """
     Validate the user's code by checking for syntax errors.
@@ -51,7 +52,28 @@ def validate_user_code(user_code):
         logging.error(f"Unexpected error during code validation: {e}")
         raise InvalidCodeError(f"Unexpected validation error: {e}")
 
+def query_ai(prompt):
+    load_dotenv()
 
+    api_key = os.getenv("API_KEY")
+
+    model = "mistral-large-latest"
+    client = Mistral(api_key=api_key)
+
+    try:
+        chat_response = client.chat.complete(
+            model=model,
+            messages=[{
+                "role": "user",
+                "content": prompt,
+            }]
+        )
+        response = chat_response.choices[0].message.content
+        logging.info("Sucessfully got response from ai")
+        return response
+    except Exception as e:
+        logging.error(f"Error getting response from ai: {e}")
+        return None
 
 def get_test_cases(user_code, client, model):
     logging.info("Generating test cases with the provided user code.")
@@ -83,7 +105,6 @@ def get_test_cases(user_code, client, model):
         logging.error(f"Error generating test cases: {e}")
         return None
 
-
 def clean_json(json_string):
     """
     Clean and format a potentially malformed JSON string.
@@ -92,7 +113,6 @@ def clean_json(json_string):
     json_string = re.sub(r',\s*([\]}])', r'\1', json_string)
     json_string = json_string.replace('\n', '').replace('\r', '')
     return json_string
-
 
 def extract_inputs_outputs(response):
     """
@@ -123,7 +143,6 @@ def extract_inputs_outputs(response):
         logging.error(f"Error decoding JSON: {e}")
         return None
 
-
 def send_to_client(test_cases):
     """
     Send the extracted test cases (inputs and outputs) to the client.
@@ -145,7 +164,6 @@ def send_to_client(test_cases):
     except Exception as e:
         logging.error(f"Error sending test cases to client: {e}")
         return None
-
 
 def ask_ai(user_code):
     load_dotenv()
@@ -193,3 +211,31 @@ def ask_ai(user_code):
         except Exception as e:
             logging.error(f"Unexpected error during AI test case generation: {str(e)}")
             raise RuntimeError("An unexpected error occurred. Please try again later.")  # Abstract error message for unexpected failures
+
+def extract_python_code_from_text(text):
+    # Use regex to extract the Python code block enclosed in triple backticks
+    code_match = re.search(r"```python\n(.*?)```", text, re.DOTALL)
+
+    if code_match:
+        # If Python code is found, return it
+        return code_match.group(1)
+    else:
+        # If no Python code block is found, return None or an appropriate message
+        return "No Python code found in the AI response."
+
+def add_debug_logs_with_ai(user_code):
+    prompt =f"""
+    Analyze the following code and add detailed debug logs to assist in understanding the code's execution flow. The logs should include information about function calls, input parameters, returned values, and important intermediate variables or states. Use a consistent logging format and ensure that logs are informative but do not overwhelm with unnecessary details. Write the updated code with the debug logs added, maintaining the original functionality.
+
+    Here is the code:
+
+    {user_code}
+    Expected output: Provide the modified code with debug logs integrated, ensuring clarity and effectiveness."
+    """
+    try:
+       ai_response = query_ai(prompt)
+       ai_generated_code = extract_python_code_from_text(ai_response)
+    except Exception as e:
+        raise e
+
+    return ai_generated_code

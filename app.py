@@ -7,7 +7,7 @@ import json
 import os
 from validator import validate_and_process_input_output, ValidationException
 from userInputs_edge_case_handler import handleEdgecases, extract_function_name, FunctionNameNotFoundError
-from ai_test_case_generator import ask_ai, InvalidCodeError
+from ai_test_case_generator import ask_ai, InvalidCodeError, add_debug_logs_with_ai
 
 # Set up logging configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -147,6 +147,18 @@ def generate_test_case():
         "test_cases": test_cases
     }), 200
 
+@app.route('/add_debug_logs', methods=['POST'])
+def add_debug_logs():
+    data = request.json
+    code = data.get("code")
+
+    try:
+        updated_code = add_debug_logs_with_ai(code)
+        response = {"updated_code": updated_code}
+    except Exception as e:
+        response = {"err": str(e)}
+
+    return jsonify(response)
 
 if __name__ == '__main__':
     app.run(port=5000)
