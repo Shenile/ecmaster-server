@@ -66,10 +66,10 @@ class Testing:
 
             except Exception as e:
 
+                # Specific error for the failing test case
                 result['status'] = 'Failed'
                 tests_summary['failed'] += 1
-                result['error'] = f"An ERROR occured : {str(e)}"
-                raise e
+                result['error'] = f"failed with error: {str(e)}"
 
             results['results'].append(result)
             tests_summary['test_inputs'].append(arr)
