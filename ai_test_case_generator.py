@@ -168,6 +168,7 @@ def ask_ai(user_code):
                 raise InvalidCodeError("User code validation failed.")
 
             ai_response = get_test_cases(user_code, client, model)
+            logging.info(f'ai response : {ai_response}')
 
             if not ai_response:
                 raise ValueError("Received empty or invalid response from AI.")
